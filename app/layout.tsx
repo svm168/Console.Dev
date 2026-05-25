@@ -1,3 +1,5 @@
+import "@uploadthing/react/styles.css";
+
 import type { Metadata } from "next";
 import { Iceberg } from "next/font/google";
 import "./globals.css";

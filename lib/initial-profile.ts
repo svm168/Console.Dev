@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 export const initialProfile = async () => {
     const user = await currentUser();
 
-    // Instead of throwing a redirect error here, return null
+    // Don't redirect here, return null. This returned null will be used elsewhere(wherever initialProfile is called) to redirect
     if (!user) return null;
 
     const profile = await db.profile.findUnique({
