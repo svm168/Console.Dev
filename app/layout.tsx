@@ -6,6 +6,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { ModalProvider } from "@/components/providers/modal-provider";
 
 const font = Iceberg({ weight: "400", subsets: ["latin"], variable: "--font-sans" });
 
@@ -24,6 +25,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <body className={cn(font.className, "bg-white dark:bg-[#2f3640]")}>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="console-dev">
+            <ModalProvider />
             {children}
           </ThemeProvider>
         </body>

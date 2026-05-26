@@ -17,17 +17,13 @@ export const FileUpload = ({ onChange, value, endpoint}: FileUploadProps) => {
     
     if (value && fileType !== "pdf") {
         return (
-            // 1. The outer "shield" div that absorbs the forceful stretching from the parent
             <div className="flex w-full justify-center">
                 
-                {/* 2. Your exact 80x80 container, safely protected from stretching */}
                 <div className="relative h-20 w-20">
-                    <Image 
-                        fill 
+                    <img 
                         src={value} 
-                        alt="Upload" 
-                        // 3. Make sure object-cover is here so the image doesn't squish!
-                        className="rounded-full object-cover" 
+                        alt="Server Avatar" 
+                        className="h-full w-full rounded-full object-cover" 
                         sizes="80px"
                     />
                     <button 
