@@ -29,12 +29,6 @@ export const DeleteMessageModal = () => {
 
             await axios.delete(url)
 
-            router.refresh()
-            try {
-                window.dispatchEvent(new CustomEvent("message-deleted"))
-            } catch (error) {
-                console.log(error)
-            }
             onClose()
         } catch (error) {
             console.log(error)
