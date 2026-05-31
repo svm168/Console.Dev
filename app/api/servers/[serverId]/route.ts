@@ -10,7 +10,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ server
         const { name, imageUrl } = await req.json()
 
         const { serverId } = await params
-        if(!serverId) return null
+        if(!serverId) return new NextResponse("Server ID missing", { status: 400 })
 
         const server = await db.server.update({
             where: {
@@ -36,7 +36,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ serve
         if(!profile) return new NextResponse("Unauthorized", { status: 401 })
 
         const { serverId } = await params
-        if(!serverId) return null
+        if(!serverId) return new NextResponse("Server ID missing", { status: 400 })
 
         const server = await db.server.delete({
             where: {
