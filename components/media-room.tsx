@@ -24,11 +24,10 @@ export const MediaRoom = ({chatId, video, audio}: MediaRoomProps) => {
         else if (user.firstName) name = user.firstName;
         else if (user.emailAddresses.length > 0) name = user.emailAddresses[0].emailAddress.split("@")[0];
 
-        const identity = user.id;
-
         (async () => {
             try {
-                const res = await fetch(`/api/livekit?room=${chatId}&username=${name}&identity=${identity}`)
+                const url = `/api/livekit?room=${chatId}&username=${encodeURIComponent(name)}&identity=${user.id}`;
+                const res = await fetch(url)
                 const data = await res.json()
                 setToken(data.token)
             } catch (error) {
@@ -48,7 +47,7 @@ export const MediaRoom = ({chatId, video, audio}: MediaRoomProps) => {
 
     return (
         <div className="h-[calc(100vh-27px)]">
-        <LiveKitRoom data-lk-theme="default" serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL} token={token} connect={true} video={video} audio={audio}>
+        <LiveKitRoom data-lk-theme="default" serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL} token={token} connect={true} video={false} audio={false}>
             <VideoConference />
         </LiveKitRoom>
         </div>
