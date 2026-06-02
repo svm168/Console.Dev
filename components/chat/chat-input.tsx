@@ -54,6 +54,7 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
             const optimisticMessage = {
                 id: tempId,
                 isOptimistic: true,
+                _originalContent: values.content,
                 content: values.content,
                 fileUrl: null,
                 createdAt: new Date().toISOString(),
@@ -106,9 +107,22 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
                     queryClient.setQueryData([queryKey], (oldData: any) => {
                         if (!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
                         const newData = [...oldData.pages];
+
+                        const socketIndex = newData[0].items.findIndex((item: any) => item.id === realMessage.id);
                         const tempIndex = newData[0].items.findIndex((item: any) => item.id === tempId);
 
-                        if (tempIndex !== -1) {
+                        if (tempIndex !== -1&& tempIndex !== -1) {
+                            newData[0].items[socketIndex] = {
+                                ...newData[0].items[socketIndex],
+                                content: tempMsgState ? tempMsgState.content : realMessage.content,
+                                deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
+                                fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
+                                _pendingEdits: 0
+                            };
+
+                            newData[0].items.splice(tempIndex, 1);
+                        }
+                        else if(tempIndex !== -1){
                             newData[0].items[tempIndex] = {
                                 ...realMessage,
                                 content: tempMsgState ? tempMsgState.content : realMessage.content,
@@ -121,12 +135,13 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
                     });
 
                     // FLUSH LATER: Fire the deferred requests using the REAL database ID
+                    const baseSocketUrl = apiUrl.replace("/api/", "/api/socket/");
                     if (tempMsgState) {
                         if (tempMsgState.deleted) {
-                            const deleteUrl = qs.stringifyUrl({ url: `${apiUrl}/${realMessage.id}`, query });
+                            const deleteUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
                             axios.delete(deleteUrl).catch(console.log);
                         } else if (tempMsgState.content !== values.content) {
-                            const editUrl = qs.stringifyUrl({ url: `${apiUrl}/${realMessage.id}`, query });
+                            const editUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
                             axios.patch(editUrl, { content: tempMsgState.content }).catch(console.log);
                         }
                     }

@@ -67,14 +67,20 @@ export const useChatSocket = ({addKey, updateKey, queryKey}: ChatSocketProps) =>
                 const alreadyExists = newData[0].items.find((item: any) => item.id === message.id)
                 if (alreadyExists) return oldData;
 
-                const tempIndex = newData[0].items.findIndex((item: any) => item.id === message.tempId)
+                const isHandledByHttp = newData[0].items.some((item: any) => 
+                    item.id.startsWith("temp_") && 
+                    item.member.id === message.member.id &&
+                    (item._originalContent === message.content || item.content === message.content)
+                );
 
-                if (tempIndex !== -1) newData[0].items[tempIndex] = message
-                else {
-                    newData[0] = {
-                        ...newData[0],
-                        items: [message, ...newData[0].items],
-                    }
+                if (isHandledByHttp) {
+                    return oldData; 
+                }
+
+                // 3. Otherwise, it's a normal message from someone else. Add it!
+                newData[0] = {
+                    ...newData[0],
+                    items: [message, ...newData[0].items],
                 }
 
                 return {
