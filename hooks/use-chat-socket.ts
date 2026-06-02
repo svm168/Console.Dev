@@ -30,15 +30,11 @@ export const useChatSocket = ({addKey, updateKey, queryKey}: ChatSocketProps) =>
                 const newData = oldData.pages.map((page: any) => {
                     return {
                         ...page,
-                        items: page.items.map((item: any) => { // <-- Note: change type to 'any' here
+                        items: page.items.map((item: any) => {
                             if(item.id === message.id) {
-                                // 1. Terminal State Guard
-                                if (item.deleted && !message.deleted) return item; 
+                                if(item.deleted && !message.deleted) return item; 
                                 
-                                // 2. RACE CONDITION GUARD: 
-                                // If the user has pending optimistic edits inflight, 
-                                // ignore incoming socket updates to prevent rubber-banding.
-                                if (item._pendingEdits > 0) return item; 
+                                if(item._pendingEdits > 0) return item; 
                                 
                                 return message; 
                             }
@@ -65,19 +61,12 @@ export const useChatSocket = ({addKey, updateKey, queryKey}: ChatSocketProps) =>
                 const newData = [...oldData.pages]
 
                 const alreadyExists = newData[0].items.find((item: any) => item.id === message.id)
-                if (alreadyExists) return oldData;
+                if(alreadyExists) return oldData;
 
-                const isHandledByHttp = newData[0].items.some((item: any) => 
-                    item.id.startsWith("temp_") && 
-                    item.member.id === message.member.id &&
-                    (item._originalContent === message.content || item.content === message.content)
-                );
+                const isHandledByHttp = newData[0].items.some( (item: any) => item.id.startsWith("temp_") && item.member.id === message.member.id && (item._originalContent === message.content || item.content === message.content) );
 
-                if (isHandledByHttp) {
-                    return oldData; 
-                }
+                if (isHandledByHttp) return oldData;
 
-                // 3. Otherwise, it's a normal message from someone else. Add it!
                 newData[0] = {
                     ...newData[0],
                     items: [message, ...newData[0].items],

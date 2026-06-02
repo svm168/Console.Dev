@@ -3,8 +3,8 @@
 import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Plus, Send } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import axios from "axios";
 import qs from "query-string";
@@ -76,9 +76,7 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
             }
 
             queryClient.setQueryData([queryKey], (oldData: any) => {
-                if (!oldData || !oldData.pages || oldData.pages.length === 0) {
-                    return { pages: [{ items: [optimisticMessage] }] }
-                }
+                if(!oldData || !oldData.pages || oldData.pages.length === 0) return { pages: [{ items: [optimisticMessage] }] }
                 const newData = [...oldData.pages]
                 newData[0] = {
                     ...newData[0],
@@ -89,72 +87,71 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
 
             form.reset()
 
-            axios.post(url, { ...values, tempId })
-                .then((response) => {
-                    const realMessage = response.data;
-                    const currentCache = queryClient.getQueryData([queryKey]) as any;
-                    let tempMsgState = null;
+            axios.post(url, { ...values, tempId }).then((response) => {
+                const realMessage = response.data;
+                const currentCache = queryClient.getQueryData([queryKey]) as any;
+                let tempMsgState = null;
 
-                    // Check if the user edited or deleted it while it was in flight
-                    if (currentCache?.pages) {
-                        for (const page of currentCache.pages) {
-                            const found = page.items.find((item: any) => item.id === tempId);
-                            if (found) { tempMsgState = found; break; }
-                        }
+                if(currentCache?.pages){
+                    for(const page of currentCache.pages){
+                        const found = page.items.find((item: any) => item.id === tempId);
+                        if (found) { tempMsgState = found; break; }
+                    }
+                }
+
+                queryClient.setQueryData([queryKey], (oldData: any) => {
+                    if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
+                    const newData = [...oldData.pages];
+
+                    newData[0] = {
+                        ...newData[0],
+                        items: [...newData[0].items]
                     }
 
-                    // SWAP FIRST: Immediately replace the temp ID with the real ID, 
-                    // but preserve the user's optimistic modifications so the UI doesn't flicker.
-                    queryClient.setQueryData([queryKey], (oldData: any) => {
-                        if (!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
-                        const newData = [...oldData.pages];
+                    const socketIndex = newData[0].items.findIndex((item: any) => item.id === realMessage.id);
+                    const tempIndex = newData[0].items.findIndex((item: any) => item.id === tempId);
 
-                        newData[0] = {
-                            ...newData[0],
-                            items: [...newData[0].items]
-                        }
+                    const isEdited = tempMsgState && tempMsgState.content !== tempMsgState._originalContent;
 
-                        const socketIndex = newData[0].items.findIndex((item: any) => item.id === realMessage.id);
-                        const tempIndex = newData[0].items.findIndex((item: any) => item.id === tempId);
+                    if(socketIndex !== -1&& tempIndex !== -1){
+                        newData[0].items[socketIndex] = {
+                            ...newData[0].items[socketIndex],
+                            content: tempMsgState ? tempMsgState.content : realMessage.content,
+                            deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
+                            fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
+                            updatedAt: isEdited ? tempMsgState.updatedAt : realMessage.updatedAt,
+                            _pendingEdits: 0,
+                            _tempId: tempId,
+                        };
 
-                        if (socketIndex !== -1&& tempIndex !== -1) {
-                            newData[0].items[socketIndex] = {
-                                ...newData[0].items[socketIndex],
-                                content: tempMsgState ? tempMsgState.content : realMessage.content,
-                                deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
-                                fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
-                                _pendingEdits: 0,
-                                _tempId: tempId,
-                            };
-
-                            newData[0].items.splice(tempIndex, 1);
-                        }
-                        else if(tempIndex !== -1){
-                            newData[0].items[tempIndex] = {
-                                ...realMessage,
-                                content: tempMsgState ? tempMsgState.content : realMessage.content,
-                                deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
-                                fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
-                                _pendingEdits: 0,
-                                _tempId: tempId,
-                            };
-                        }
-                        return { ...oldData, pages: newData };
-                    });
-
-                    // FLUSH LATER: Fire the deferred requests using the REAL database ID
-                    const baseSocketUrl = apiUrl.includes("/api/socket/") ? apiUrl : apiUrl.replace("/api/", "/api/socket/");
-                    if (tempMsgState) {
-                        if (tempMsgState.deleted) {
-                            const deleteUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
-                            axios.delete(deleteUrl).catch(console.log);
-                        } else if (tempMsgState.content !== values.content) {
-                            const editUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
-                            axios.patch(editUrl, { content: tempMsgState.content }).catch(console.log);
-                        }
+                        newData[0].items.splice(tempIndex, 1);
                     }
-                })
-                .catch((error) => console.log(error));
+                    else if(tempIndex !== -1){
+                        newData[0].items[tempIndex] = {
+                            ...realMessage,
+                            content: tempMsgState ? tempMsgState.content : realMessage.content,
+                            deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
+                            fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
+                            updatedAt: isEdited ? tempMsgState.updatedAt : realMessage.updatedAt,
+                            _pendingEdits: 0,
+                            _tempId: tempId,
+                        };
+                    }
+                    return { ...oldData, pages: newData };
+                });
+
+                const baseSocketUrl = apiUrl.includes("/api/socket/") ? apiUrl : apiUrl.replace("/api/", "/api/socket/");
+                if(tempMsgState){
+                    if(tempMsgState.deleted){
+                        const deleteUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
+                        axios.delete(deleteUrl).catch(console.log);
+                    }
+                    else if(tempMsgState.content !== values.content){
+                        const editUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
+                        axios.patch(editUrl, { content: tempMsgState.content }).catch(console.log);
+                    }
+                }
+            }).catch((error) => console.log(error));
         } catch (error) {
             console.log(error)
         }
@@ -164,13 +161,24 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
         <form onSubmit={form.handleSubmit(onSubmit)}>
             <Controller control={form.control} name="content" render={({ field }) => (
                 <Field>
-                    <div className="relative p-4 pb-6">
-                        <button type="button" onClick={() => onOpen("messageFile", {apiUrl, query})} className="absolute top-7 left-8 h-6 w-6 bg-zinc-500 dark:bg-zinc-400 hover:bg-zinc-600 dark:hover:bg-zinc-300 transition rounded-full p-1 flex items-center justify-center">
+                    <div className="relative px-4 pb-6">
+                        <button type="button" onClick={() => onOpen("messageFile", {apiUrl, query})} className="absolute bottom-9 left-8 h-6 w-6 bg-zinc-500 dark:bg-zinc-400 hover:bg-zinc-600 dark:hover:bg-zinc-300 transition rounded-full p-1 flex items-center justify-center">
                             <Plus className="text-white dark:text-[#313338]" />
                         </button>
-                        <Input disabled={isLoading} placeholder={`Message ${type === "conversation" ? name : "#" + name}`} {...field} className="px-14 py-6 bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200" />
-                        <div className="absolute top-7 right-8">
+                        <Textarea disabled={isLoading} placeholder={`Message ${type === "conversation" ? name : "#" + name}`} {...field} 
+                            onKeyDown={(event) => {
+                                if(event.key === "Enter" && !event.shiftKey){
+                                    event.preventDefault(); 
+                                    if(!isLoading && field.value.trim() !== "") form.handleSubmit(onSubmit)();
+                                }
+                            }}
+                            className="pl-16 pr-24 py-3 min-h-0 resize-none max-h-72 overflow-y-auto bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200" 
+                        />
+                        <div className="absolute bottom-9 right-8 flex items-center gap-x-2 z-1">
                             <EmojiPicker onChange={(emoji: string) => field.onChange(`${field.value}${emoji}`)} />
+                            <button type="button" onClick={() => form.handleSubmit(onSubmit)()} disabled={isLoading || field.value.trim() === ""} className="h-6 w-6 flex items-center justify-center rounded-full transition text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <Send className="h-5 w-5" />
+                            </button>
                         </div>
                     </div>
                 </Field>

@@ -22,8 +22,6 @@ export const ServerSearch = ({data}: ServerSearchProps) => {
     const router = useRouter()
     const params = useParams()
 
-    // This useEffect for Ctrl + k for search bar doesn't work. Ctrl + k takes to browser search bar.
-    // (may not be fault of code but of browser).
     useEffect(() => {
         const down = (event: KeyboardEvent) => {
             if(event.key === 'k' && (event.metaKey || event.ctrlKey)){

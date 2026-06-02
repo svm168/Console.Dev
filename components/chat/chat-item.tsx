@@ -59,9 +59,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
 
     useEffect(() => {
         const handleKeyDown = (event: any) => {
-            if(event.key === "Escape" || event.keyCode === 27){
-                setIsEditting(false)
-            }
+            if(event.key === "Escape" || event.keyCode === 27) setIsEditting(false)
         }
 
         window.addEventListener("keydown", handleKeyDown)
@@ -70,9 +68,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
     }, [])
 
     useEffect(() => {
-        form.reset({
-            content: content
-        })
+        form.reset({ content: content })
     }, [content])
 
     const isAdmin = currentMember.role === MemberRole.ADMIN
@@ -87,17 +83,14 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
     const isLoading = form.formState.isSubmitting
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
-        // Snapshot the previous state in case we need to roll back
         const previousMessages = queryClient.getQueryData([queryKey]) as any;
 
-        // QUEUE CHECK: Is this message still sending?
         let currentMessageId = id
         let isCurrentlyOptimistic = id.startsWith("temp_");
-        if (previousMessages?.pages) {
-            for (const page of previousMessages.pages) {
-                // Find by current ID, OR by its original tempId if it was recently swapped
+        if(previousMessages?.pages){
+            for(const page of previousMessages.pages){
                 const found = page.items.find((i: any) => i.id === id || i._tempId === id);
-                if (found) {
+                if(found){
                     currentMessageId = found.id;
                     isCurrentlyOptimistic = found.id.startsWith("temp_");
                     break;
@@ -111,7 +104,6 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                 query: socketQuery
             });
 
-            // 1. Optimistic Update: Manually mutate the cache & increment lock
             queryClient.setQueryData([queryKey], (oldData: any) => {
                 if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
 
@@ -120,12 +112,11 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                     pages: oldData.pages.map((page: any) => ({
                         ...page,
                         items: page.items.map((item: any) => {
-                            if (item.id === currentMessageId) {
+                            if(item.id === currentMessageId){
                                 return {
                                     ...item,
                                     content: values.content,
                                     updatedAt: new Date().toISOString(), 
-                                    // TRACKING: Add 1 to the pending edits counter
                                     _pendingEdits: (item._pendingEdits || 0) + 1 
                                 }
                             }
@@ -135,16 +126,13 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                 };
             });
 
-            // 2. Make it non-blocking: close form and reset immediately
             form.reset();
             setIsEditting(false);
 
             if(isCurrentlyOptimistic) return;
 
-            // 3. Fire the actual request in the background
             await axios.patch(url, values);
 
-            // 4. On Success: Decrement the lock
             queryClient.setQueryData([queryKey], (oldData: any) => {
                 if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
                 return {
@@ -155,7 +143,6 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                             if (item.id === currentMessageId) {
                                 return {
                                     ...item,
-                                    // Remove 1 from the pending edits counter safely
                                     _pendingEdits: Math.max((item._pendingEdits || 1) - 1, 0)
                                 }
                             }
@@ -166,7 +153,6 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
             });
 
         } catch (error) {
-            // Revert on failure (this automatically reverts the _pendingEdits count too!)
             queryClient.setQueryData([queryKey], previousMessages);
             console.log(error);
         }
