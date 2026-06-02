@@ -143,7 +143,7 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
                     });
 
                     // FLUSH LATER: Fire the deferred requests using the REAL database ID
-                    const baseSocketUrl = apiUrl.replace("/api/", "/api/socket/");
+                    const baseSocketUrl = apiUrl.includes("/api/socket/") ? apiUrl : apiUrl.replace("/api/", "/api/socket/");
                     if (tempMsgState) {
                         if (tempMsgState.deleted) {
                             const deleteUrl = qs.stringifyUrl({ url: `${baseSocketUrl}/${realMessage.id}`, query });
