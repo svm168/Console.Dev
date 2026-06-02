@@ -77,7 +77,7 @@ export const ChatMessages = ({name, member, chatId, apiUrl, socketUrl, socketQue
                 {data?.pages?.map((group, i) => (
                     <Fragment key={i}>
                         {group.items.map((message: MessageWithMemberWithProfile) => (
-                            <ChatItem key={message.id} id={message.id} currentMember={member} member={message.member} content={message.content} fileUrl={message.fileUrl} deleted={message.deleted} timestamp={format(new Date(message.createdAt), DATE_FORMAT)} isUpdated={message.updatedAt !== message.createdAt} socketUrl={socketUrl} socketQuery={socketQuery} />
+                            <ChatItem key={message.id} id={message.id} currentMember={member} member={message.member} content={message.content} fileUrl={message.fileUrl} deleted={message.deleted} timestamp={format(new Date(message.createdAt), DATE_FORMAT)} isUpdated={message.updatedAt !== message.createdAt} socketUrl={socketUrl} socketQuery={socketQuery} queryKey={queryKey} />
                         ))}
                     </Fragment>
                 ))}

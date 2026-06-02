@@ -17,6 +17,7 @@ import { Field } from "../ui/field";
 import { Controller } from "react-hook-form";
 import { useModal } from "@/hooks/use-modal-store";
 import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ChatItemProps {
     id: string;
@@ -31,6 +32,7 @@ interface ChatItemProps {
     isUpdated: boolean;
     socketUrl: string;
     socketQuery: Record<string, string>;
+    queryKey: string;
 }
 
 const roleIconMap = {
@@ -43,9 +45,10 @@ const formSchema = z.object({
     content: z.string().min(1)
 })
 
-export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, currentMember, isUpdated, socketUrl, socketQuery }: ChatItemProps) => {
+export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, currentMember, isUpdated, socketUrl, socketQuery, queryKey }: ChatItemProps) => {
     const [isEditting, setIsEditting] = useState(false)
     const { onOpen } = useModal()
+    const queryClient = useQueryClient()
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -84,18 +87,82 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
     const isLoading = form.formState.isSubmitting
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        // Snapshot the previous state in case we need to roll back
+        const previousMessages = queryClient.getQueryData([queryKey]) as any;
+
+        // QUEUE CHECK: Is this message still sending?
+        const isOptimistic = id.startsWith("temp_");
+        // if (previousMessages?.pages) {
+        //     for (const page of previousMessages.pages) {
+        //         const msg = page.items.find((i: any) => i.id === id);
+        //         if (msg && msg.isOptimistic) isOptimistic = true;
+        //     }
+        // }
+
         try {
             const url = qs.stringifyUrl({
                 url: `${socketUrl}/${id}`,
                 query: socketQuery
-            })
+            });
 
-            await axios.patch(url, values)
+            // 1. Optimistic Update: Manually mutate the cache & increment lock
+            queryClient.setQueryData([queryKey], (oldData: any) => {
+                if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
 
-            form.reset()
-            setIsEditting(false)
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                        ...page,
+                        items: page.items.map((item: any) => {
+                            if (item.id === id || (isOptimistic && item.content === content)) {
+                                return {
+                                    ...item,
+                                    content: values.content,
+                                    updatedAt: new Date().toISOString(), 
+                                    // TRACKING: Add 1 to the pending edits counter
+                                    _pendingEdits: (item._pendingEdits || 0) + 1 
+                                }
+                            }
+                            return item;
+                        })
+                    }))
+                };
+            });
+
+            // 2. Make it non-blocking: close form and reset immediately
+            form.reset();
+            setIsEditting(false);
+
+            if(isOptimistic) return;
+
+            // 3. Fire the actual request in the background
+            await axios.patch(url, values);
+
+            // 4. On Success: Decrement the lock
+            queryClient.setQueryData([queryKey], (oldData: any) => {
+                if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                        ...page,
+                        items: page.items.map((item: any) => {
+                            if (item.id === id) {
+                                return {
+                                    ...item,
+                                    // Remove 1 from the pending edits counter safely
+                                    _pendingEdits: Math.max((item._pendingEdits || 1) - 1, 0)
+                                }
+                            }
+                            return item;
+                        })
+                    }))
+                };
+            });
+
         } catch (error) {
-            console.log(error)
+            // Revert on failure (this automatically reverts the _pendingEdits count too!)
+            queryClient.setQueryData([queryKey], previousMessages);
+            console.log(error);
         }
     }
 
@@ -168,7 +235,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                         </ActionTooltip>
                     )}
                     <ActionTooltip label="Delete">
-                        <Trash onClick={() => onOpen("deleteMessage", {apiUrl: `${socketUrl}/${id}`, query: socketQuery})} className="cursor-pointer ml-auto w-4 h-4 text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition" />
+                        <Trash onClick={() => onOpen("deleteMessage", {apiUrl: `${socketUrl}/${id}`, query: socketQuery, queryKey: queryKey, id: id})} className="cursor-pointer ml-auto w-4 h-4 text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition" />
                     </ActionTooltip>
                 </div>
             )}

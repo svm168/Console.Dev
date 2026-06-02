@@ -47,21 +47,22 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
                 query,
             })
 
-            const tempId = uuidv4()
+            const tempId = `temp_${uuidv4()}`
             const chatId = query.channelId || query.conversationId
             const queryKey = `chat:${chatId}`
 
             const optimisticMessage = {
                 id: tempId,
+                isOptimistic: true,
                 content: values.content,
                 fileUrl: null,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 channelId: query.channelId,
-                memberId: "temp-id",
+                memberId: member?.id || "temp-id",
                 deleted: false,
                 member: {
-                    id: "temp-id",
+                    id: member?.id || "temp-id",
                     role: member?.role,
                     profile: {
                         id: user?.id,
@@ -89,23 +90,48 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
             axios.post(url, { ...values, tempId })
                 .then((response) => {
                     const realMessage = response.data;
-                    
+                    const currentCache = queryClient.getQueryData([queryKey]) as any;
+                    let tempMsgState = null;
+
+                    // Check if the user edited or deleted it while it was in flight
+                    if (currentCache?.pages) {
+                        for (const page of currentCache.pages) {
+                            const found = page.items.find((item: any) => item.id === tempId);
+                            if (found) { tempMsgState = found; break; }
+                        }
+                    }
+
+                    // SWAP FIRST: Immediately replace the temp ID with the real ID, 
+                    // but preserve the user's optimistic modifications so the UI doesn't flicker.
                     queryClient.setQueryData([queryKey], (oldData: any) => {
                         if (!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
-
                         const newData = [...oldData.pages];
                         const tempIndex = newData[0].items.findIndex((item: any) => item.id === tempId);
 
                         if (tempIndex !== -1) {
-                            newData[0].items[tempIndex] = realMessage;
+                            newData[0].items[tempIndex] = {
+                                ...realMessage,
+                                content: tempMsgState ? tempMsgState.content : realMessage.content,
+                                deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
+                                fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
+                                _pendingEdits: 0
+                            };
                         }
-
                         return { ...oldData, pages: newData };
                     });
+
+                    // FLUSH LATER: Fire the deferred requests using the REAL database ID
+                    if (tempMsgState) {
+                        if (tempMsgState.deleted) {
+                            const deleteUrl = qs.stringifyUrl({ url: `${apiUrl}/${realMessage.id}`, query });
+                            axios.delete(deleteUrl).catch(console.log);
+                        } else if (tempMsgState.content !== values.content) {
+                            const editUrl = qs.stringifyUrl({ url: `${apiUrl}/${realMessage.id}`, query });
+                            axios.patch(editUrl, { content: tempMsgState.content }).catch(console.log);
+                        }
+                    }
                 })
-                .catch((error) => {
-                    console.log(error)
-                })
+                .catch((error) => console.log(error));
         } catch (error) {
             console.log(error)
         }

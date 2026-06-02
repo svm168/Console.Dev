@@ -30,8 +30,18 @@ export const useChatSocket = ({addKey, updateKey, queryKey}: ChatSocketProps) =>
                 const newData = oldData.pages.map((page: any) => {
                     return {
                         ...page,
-                        items: page.items.map((item: MessageWithMemberWithProfile) => {
-                            if(item.id === message.id) return message
+                        items: page.items.map((item: any) => { // <-- Note: change type to 'any' here
+                            if(item.id === message.id) {
+                                // 1. Terminal State Guard
+                                if (item.deleted && !message.deleted) return item; 
+                                
+                                // 2. RACE CONDITION GUARD: 
+                                // If the user has pending optimistic edits inflight, 
+                                // ignore incoming socket updates to prevent rubber-banding.
+                                if (item._pendingEdits > 0) return item; 
+                                
+                                return message; 
+                            }
                             return item
                         })
                     }

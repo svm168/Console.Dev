@@ -9,6 +9,8 @@ interface ModalData {
     channelType?: ChannelType;
     apiUrl?: string;
     query?: Record<string, any>;
+    queryKey?: string;
+    id?: string;
 }
 
 interface ModalStore {

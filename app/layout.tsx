@@ -28,8 +28,8 @@ export default function RootLayout({
         <body className={cn(font.className, "bg-white dark:bg-[#2f3640]")}>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="console-dev">
             <SocketProvider>
-              <ModalProvider />
-                <QueryProvider>
+              <QueryProvider>
+                <ModalProvider />
                   {children}
                 </QueryProvider>
             </SocketProvider>

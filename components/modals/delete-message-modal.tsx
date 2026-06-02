@@ -9,31 +9,75 @@ import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import qs from "query-string";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const DeleteMessageModal = () => {
     const { isOpen, onClose, type, data } = useModal();
     const router = useRouter();
+    const queryClient = useQueryClient()
 
     const isModalOpen = isOpen && type === "deleteMessage"
-    const { apiUrl, query } = data
+    const { apiUrl, query, queryKey, id } = data
 
     const [isLoading, setIsLoading] = useState(false)
 
     const onClick = async () => {
+        if(!queryKey || !id) return;
+
+        const previousMessages = queryClient.getQueryData([queryKey]) as any;
+
+        // QUEUE CHECK: Is this message still sending?
+        const isOptimistic = id?.startsWith("temp_");
+        // if (previousMessages?.pages) {
+        //     for (const page of previousMessages.pages) {
+        //         const msg = page.items.find((i: any) => i.id === id);
+        //         if (msg && msg.isOptimistic) isOptimistic = true;
+        //     }
+        // }
+
         try {
-            setIsLoading(true)
+            // 1. Make it non-blocking by closing the modal instantly
+            onClose();
+
+            // 2. Optimistic Update: Mutate the cache immediately
+            if (queryKey && id) {
+                queryClient.setQueryData([queryKey], (oldData: any) => {
+                    if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
+                    
+                    return {
+                        ...oldData,
+                        pages: oldData.pages.map((page: any) => ({
+                            ...page,
+                            items: page.items.map((item: any) => {
+                                if (item.id === id) {
+                                    return {
+                                        ...item,
+                                        fileUrl: null,
+                                        content: "This message has been deleted.",
+                                        deleted: true,
+                                    }
+                                }
+                                return item;
+                            })
+                        }))
+                    };
+                });
+            }
+
+            if(isOptimistic) return;
+
+            // 3. Fire the delete in the background
             const url = qs.stringifyUrl({
                 url: apiUrl || "",
                 query,
-            })
+            });
 
-            await axios.delete(url)
+            await axios.delete(url);
 
-            onClose()
         } catch (error) {
-            console.log(error)
-        } finally {
-            setIsLoading(false)
+            // Revert UI if the server refuses the delete operation
+            queryClient.setQueryData([queryKey], previousMessages);
+            console.log(error);
         }
     }
 
