@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseS
         if(!serverId) return res.status(400).json({ error: "Server ID missing" })
         if(!channelId) return res.status(400).json({ error: "Channel ID missing" })
             
-        const { content, fileUrl } = req.body
+        const { content, fileUrl, tempId } = req.body
         if(!content) return res.status(400).json({ error: "Content missing" })
 
         const server = await db.server.findFirst({
@@ -61,7 +61,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseS
 
         const channelKey = `chat:${channelId}:messages`
 
-        res?.socket?.server?.io?.emit(channelKey, message)
+        const emittedMessage = tempId ? { ...message, tempId } : message
+
+        res?.socket?.server?.io?.emit(channelKey, emittedMessage)
 
         return res.status(200).json(message)
     } catch (error) {

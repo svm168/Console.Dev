@@ -10,22 +10,26 @@ import axios from "axios";
 import qs from "query-string";
 import { useModal } from "@/hooks/use-modal-store";
 import { EmojiPicker } from "@/components/emoji-picker";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { v4 as uuidv4 } from "uuid";
+import { useUser } from "@clerk/nextjs";
 
 interface ChatInputProps {
     apiUrl: string;
     query: Record<string, any>;
     name: string;
     type: "conversation" | "channel";
+    member?: any;
 }
 
 const formSchema = z.object({
     content: z.string().min(1)
 })
 
-export const ChatInput = ({apiUrl, query, name, type}: ChatInputProps) => {
+export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) => {
     const { onOpen } = useModal()
-    const router = useRouter()
+    const queryClient = useQueryClient()
+    const { user } = useUser()
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -43,10 +47,65 @@ export const ChatInput = ({apiUrl, query, name, type}: ChatInputProps) => {
                 query,
             })
 
-            await axios.post(url, values)
-            
+            const tempId = uuidv4()
+            const chatId = query.channelId || query.conversationId
+            const queryKey = `chat:${chatId}`
+
+            const optimisticMessage = {
+                id: tempId,
+                content: values.content,
+                fileUrl: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                channelId: query.channelId,
+                memberId: "temp-id",
+                deleted: false,
+                member: {
+                    id: "temp-id",
+                    role: member?.role,
+                    profile: {
+                        id: user?.id,
+                        name: user?.firstName ? `${user?.firstName} ${user?.lastName || ""}`.trim() : "User",
+                        imageUrl: user?.imageUrl,
+                        email: user?.emailAddresses?.[0]?.emailAddress
+                    }
+                }
+            }
+
+            queryClient.setQueryData([queryKey], (oldData: any) => {
+                if (!oldData || !oldData.pages || oldData.pages.length === 0) {
+                    return { pages: [{ items: [optimisticMessage] }] }
+                }
+                const newData = [...oldData.pages]
+                newData[0] = {
+                    ...newData[0],
+                    items: [optimisticMessage, ...newData[0].items],
+                }
+                return { ...oldData, pages: newData }
+            })
+
             form.reset()
-            router.refresh()
+
+            axios.post(url, { ...values, tempId })
+                .then((response) => {
+                    const realMessage = response.data;
+                    
+                    queryClient.setQueryData([queryKey], (oldData: any) => {
+                        if (!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
+
+                        const newData = [...oldData.pages];
+                        const tempIndex = newData[0].items.findIndex((item: any) => item.id === tempId);
+
+                        if (tempIndex !== -1) {
+                            newData[0].items[tempIndex] = realMessage;
+                        }
+
+                        return { ...oldData, pages: newData };
+                    });
+                })
+                .catch((error) => {
+                    console.log(error)
+                })
         } catch (error) {
             console.log(error)
         }

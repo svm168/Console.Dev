@@ -12,7 +12,8 @@ type ChatSocketProps = {
 type MessageWithMemberWithProfile = Message & {
     member: Member & {
         profile: Profile
-    }
+    },
+    tempId?: string 
 }
 
 export const useChatSocket = ({addKey, updateKey, queryKey}: ChatSocketProps) => {
@@ -53,9 +54,17 @@ export const useChatSocket = ({addKey, updateKey, queryKey}: ChatSocketProps) =>
 
                 const newData = [...oldData.pages]
 
-                newData[0] = {
-                    ...newData[0],
-                    items: [message, ...newData[0].items],
+                const alreadyExists = newData[0].items.find((item: any) => item.id === message.id)
+                if (alreadyExists) return oldData;
+
+                const tempIndex = newData[0].items.findIndex((item: any) => item.id === message.tempId)
+
+                if (tempIndex !== -1) newData[0].items[tempIndex] = message
+                else {
+                    newData[0] = {
+                        ...newData[0],
+                        items: [message, ...newData[0].items],
+                    }
                 }
 
                 return {
