@@ -91,17 +91,23 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
         const previousMessages = queryClient.getQueryData([queryKey]) as any;
 
         // QUEUE CHECK: Is this message still sending?
-        const isOptimistic = id.startsWith("temp_");
-        // if (previousMessages?.pages) {
-        //     for (const page of previousMessages.pages) {
-        //         const msg = page.items.find((i: any) => i.id === id);
-        //         if (msg && msg.isOptimistic) isOptimistic = true;
-        //     }
-        // }
+        let currentMessageId = id
+        let isCurrentlyOptimistic = id.startsWith("temp_");
+        if (previousMessages?.pages) {
+            for (const page of previousMessages.pages) {
+                // Find by current ID, OR by its original tempId if it was recently swapped
+                const found = page.items.find((i: any) => i.id === id || i._tempId === id);
+                if (found) {
+                    currentMessageId = found.id;
+                    isCurrentlyOptimistic = found.id.startsWith("temp_");
+                    break;
+                }
+            }
+        }
 
         try {
             const url = qs.stringifyUrl({
-                url: `${socketUrl}/${id}`,
+                url: `${socketUrl}/${currentMessageId}`,
                 query: socketQuery
             });
 
@@ -114,7 +120,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                     pages: oldData.pages.map((page: any) => ({
                         ...page,
                         items: page.items.map((item: any) => {
-                            if (item.id === id || (isOptimistic && item.content === content)) {
+                            if (item.id === currentMessageId) {
                                 return {
                                     ...item,
                                     content: values.content,
@@ -133,7 +139,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
             form.reset();
             setIsEditting(false);
 
-            if(isOptimistic) return;
+            if(isCurrentlyOptimistic) return;
 
             // 3. Fire the actual request in the background
             await axios.patch(url, values);
@@ -146,7 +152,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                     pages: oldData.pages.map((page: any) => ({
                         ...page,
                         items: page.items.map((item: any) => {
-                            if (item.id === id) {
+                            if (item.id === currentMessageId) {
                                 return {
                                     ...item,
                                     // Remove 1 from the pending edits counter safely

@@ -53,6 +53,7 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
 
             const optimisticMessage = {
                 id: tempId,
+                _tempId: tempId,
                 isOptimistic: true,
                 _originalContent: values.content,
                 content: values.content,
@@ -108,16 +109,22 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
                         if (!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
                         const newData = [...oldData.pages];
 
+                        newData[0] = {
+                            ...newData[0],
+                            items: [...newData[0].items]
+                        }
+
                         const socketIndex = newData[0].items.findIndex((item: any) => item.id === realMessage.id);
                         const tempIndex = newData[0].items.findIndex((item: any) => item.id === tempId);
 
-                        if (tempIndex !== -1&& tempIndex !== -1) {
+                        if (socketIndex !== -1&& tempIndex !== -1) {
                             newData[0].items[socketIndex] = {
                                 ...newData[0].items[socketIndex],
                                 content: tempMsgState ? tempMsgState.content : realMessage.content,
                                 deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
                                 fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
-                                _pendingEdits: 0
+                                _pendingEdits: 0,
+                                _tempId: tempId,
                             };
 
                             newData[0].items.splice(tempIndex, 1);
@@ -128,7 +135,8 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
                                 content: tempMsgState ? tempMsgState.content : realMessage.content,
                                 deleted: tempMsgState ? tempMsgState.deleted : realMessage.deleted,
                                 fileUrl: tempMsgState ? tempMsgState.fileUrl : realMessage.fileUrl,
-                                _pendingEdits: 0
+                                _pendingEdits: 0,
+                                _tempId: tempId,
                             };
                         }
                         return { ...oldData, pages: newData };

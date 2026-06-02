@@ -27,50 +27,51 @@ export const DeleteMessageModal = () => {
         const previousMessages = queryClient.getQueryData([queryKey]) as any;
 
         // QUEUE CHECK: Is this message still sending?
-        const isOptimistic = id?.startsWith("temp_");
-        // if (previousMessages?.pages) {
-        //     for (const page of previousMessages.pages) {
-        //         const msg = page.items.find((i: any) => i.id === id);
-        //         if (msg && msg.isOptimistic) isOptimistic = true;
-        //     }
-        // }
+        let currentMessageId = id;
+        let isCurrentlyOptimistic = id?.startsWith("temp_");
+        if (previousMessages?.pages) {
+            for (const page of previousMessages.pages) {
+                const found = page.items.find((i: any) => i.id === id || i._tempId === id);
+                if (found) {
+                    currentMessageId = found.id;
+                    isCurrentlyOptimistic = found.id.startsWith("temp_");
+                    break;
+                }
+            }
+        }
 
         try {
             // 1. Make it non-blocking by closing the modal instantly
             onClose();
 
             // 2. Optimistic Update: Mutate the cache immediately
-            if (queryKey && id) {
-                queryClient.setQueryData([queryKey], (oldData: any) => {
-                    if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
-                    
-                    return {
-                        ...oldData,
-                        pages: oldData.pages.map((page: any) => ({
-                            ...page,
-                            items: page.items.map((item: any) => {
-                                if (item.id === id) {
-                                    return {
-                                        ...item,
-                                        fileUrl: null,
-                                        content: "This message has been deleted.",
-                                        deleted: true,
-                                    }
+            queryClient.setQueryData([queryKey], (oldData: any) => {
+                if(!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
+                
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                        ...page,
+                        items: page.items.map((item: any) => {
+                            if (item.id === currentMessageId) {
+                                return {
+                                    ...item,
+                                    fileUrl: null,
+                                    content: "This message has been deleted.",
+                                    deleted: true,
                                 }
-                                return item;
-                            })
-                        }))
-                    };
-                });
-            }
+                            }
+                            return item;
+                        })
+                    }))
+                };
+            });
 
-            if(isOptimistic) return;
+            if(isCurrentlyOptimistic) return;
 
             // 3. Fire the delete in the background
-            const url = qs.stringifyUrl({
-                url: apiUrl || "",
-                query,
-            });
+            const finalApiUrl = apiUrl?.replace(id, currentMessageId);
+            const url = qs.stringifyUrl({ url: finalApiUrl || "", query });
 
             await axios.delete(url);
 
