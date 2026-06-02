@@ -24,7 +24,9 @@ export const ServerMember = ({member, server}: ServerMemberProps) => {
     const icon = roleIconMap[member.role]
 
     const onClick = () => {
-        router.push(`/servers/${params?.serverId}/conversations/${member.id}`)
+        const url = `/servers/${params?.serverId}/conversations/${member.id}`
+        localStorage.setItem(`last-visited-${params?.serverId}`, url)
+        router.push(url)
     }
 
     const onHover = () => {

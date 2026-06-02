@@ -28,7 +28,9 @@ export const ServerChannel = ({channel, server, role}: ServerChannelProps) => {
     const Icon = iconMap[channel.type]
 
     const onClick = () => {
-        router.push(`/servers/${params?.serverId}/channels/${channel.id}`)
+        const url = `/servers/${params?.serverId}/channels/${channel.id}`
+        if(channel.type === ChannelType.TEXT) localStorage.setItem(`last-visited-${params?.serverId}`, url)
+        router.push(url)
     }
 
     const onHover = () => {

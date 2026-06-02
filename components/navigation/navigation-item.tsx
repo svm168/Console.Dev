@@ -16,12 +16,22 @@ export const NavigationItem = ({ id, imageUrl, name}: NavigationItemProps) => {
     const router = useRouter();
 
     const onClick = () => {
-        router.push(`/servers/${id}`)
+        const lastVisited = localStorage.getItem(`last-visited-${id}`)
+
+        if(lastVisited) router.push(lastVisited)
+        else router.push(`/servers/${id}`)
+    }
+
+    const onHover = () => {
+        const lastVisited = localStorage.getItem(`last-visited-${id}`)
+
+        if(lastVisited) router.prefetch(lastVisited)
+        else router.prefetch(`/servers/${id}`)
     }
 
     return (
         <ActionTooltip side="right" align="center" label={name}>
-            <button onClick={onClick} className="group relative flex items-center">
+            <button onMouseEnter={onHover} onClick={onClick} className="group relative flex items-center">
                 <div className={cn(
                     "absolute left-0 bg-primary rounded-r-full transition-all w-1",
                     params?.serverId !== id && "group-hover:h-5",
