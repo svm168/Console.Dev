@@ -11,23 +11,35 @@ interface FileUploadProps {
 }
 
 export const FileUpload = ({ onChange, value, endpoint}: FileUploadProps) => {
-    const isPdf = value?.toLowerCase().endsWith(".pdf") || value?.toLowerCase().includes("ext=pdf")
 
     const isServerImage = endpoint === "serverImage";
     
-    if(value && !isPdf){
-        return (
-            <div className="flex w-full justify-center">
-                <div className={`relative ${isServerImage ? "h-20 w-20" : "h-48 w-48"}`}>
-                    <img src={value} alt="Upload Preview" className={`object-cover h-full w-full ${isServerImage ? "rounded-full" : "rounded-md"}`} sizes={isServerImage ? "80px" : "192px"} />
-                    <button onClick={() => onChange("")} className="bg-rose-500 text-white p-1 rounded-full absolute -top-2 -right-2 shadow-sm z-10" type="button">
-                        <X className="h-4 w-4"/>
-                    </button>
-                </div>
-            </div>
-        );
-    }
+    const lowerUrl = value?.toLowerCase() || "";
+    const isVoiceMemo = lowerUrl.includes("voice-memo.webm");
+    const isAudio = isVoiceMemo || lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a");
+    const isVideo = !isAudio && (lowerUrl.includes(".mp4") || lowerUrl.includes(".webm") || lowerUrl.includes(".ogg") || lowerUrl.includes(".mov"));
+    const isPdf = lowerUrl.includes(".pdf") || lowerUrl.includes("ext=pdf");
 
+    const isImage = value && !isPdf && !isVideo && !isAudio;
+
+    if(value && (isVideo || isAudio)){
+        return (
+            <div className="relative flex items-center justify-center mt-2">
+                <div className="relative flex flex-col rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 overflow-hidden w-64 shadow-sm p-4">
+                    {isVideo ? (
+                        <video src={value} controls className="w-full rounded-md max-h-32 object-cover" />
+                    ) : (
+                        <audio src={value} controls className="w-full" />
+                    )}
+                    <p className="text-xs text-zinc-500 text-center mt-2 font-medium">Ready to send</p>
+                </div>
+                <button onClick={() => onChange("")} className="bg-rose-500 hover:bg-rose-600 transition text-white p-1 rounded-full absolute -top-2 -right-2 shadow-sm z-20 cursor-pointer" type="button">
+                    <X className="h-4 w-4"/>
+                </button>
+            </div>
+        )
+    }
+    
     if(value && isPdf){
         return (
             <div className="relative flex items-center justify-center mt-2">
@@ -57,14 +69,27 @@ export const FileUpload = ({ onChange, value, endpoint}: FileUploadProps) => {
         )
     }
 
+    if(isImage){
+        return (
+            <div className="flex w-full justify-center">
+                <div className={`relative ${isServerImage ? "h-20 w-20" : "h-48 w-48"}`}>
+                    <img src={value} alt="Upload Preview" className={`object-cover h-full w-full ${isServerImage ? "rounded-full" : "rounded-md"}`} sizes={isServerImage ? "80px" : "192px"} />
+                    <button onClick={() => onChange("")} className="bg-rose-500 text-white p-1 rounded-full absolute -top-2 -right-2 shadow-sm z-10" type="button">
+                        <X className="h-4 w-4"/>
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <UploadDropzone endpoint={endpoint}
             onClientUploadComplete={(res) => {
                 const fileUrl = res?.[0]?.ufsUrl || res?.[0]?.ufsUrl;
                 const fileName = res?.[0]?.name;
 
-                if(fileName?.toLowerCase().endsWith(".pdf")) onChange(`${fileUrl}?ext=pdf`)
-                else onChange(fileUrl)
+                if(fileName) onChange(`${fileUrl}?fallback=${fileName}`);
+                else onChange(fileUrl || "");
             }}
             onUploadError={(error: Error) => {
                 console.log(error);

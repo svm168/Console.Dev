@@ -19,6 +19,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Textarea } from "@/components/ui/textarea";
 import { useMediaPreview } from "@/hooks/use-media-preview";
+import { Play } from "lucide-react";
 
 interface ChatItemProps {
     id: string;
@@ -27,7 +28,7 @@ interface ChatItemProps {
         profile: Profile;
     };
     timestamp: string;
-    fileUrl: string | undefined;
+    fileUrl: string;
     deleted: boolean;
     currentMember: Member;
     isUpdated: boolean;
@@ -81,8 +82,12 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
     const canDeleteMessage = !deleted && (isAdmin || isModerator || isOwner)
     const canEditMessage = !deleted && isOwner && !fileUrl
 
-    const isPdf = fileUrl?.toLowerCase().endsWith(".pdf") || fileUrl?.toLowerCase().includes("ext=pdf")
-    const isImage = !isPdf && fileUrl
+    const lowerUrl = fileUrl?.toLowerCase() || "";
+    const isPdf = lowerUrl.includes(".pdf") || lowerUrl.includes("ext=pdf");
+    const isVoiceMemo = lowerUrl.includes("voice-memo.webm"); 
+    const isAudio = isVoiceMemo || lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a");
+    const isVideo = !isAudio && (lowerUrl.includes(".mp4") || lowerUrl.includes(".webm") || lowerUrl.includes(".ogg") || lowerUrl.includes(".mov"));
+    const isImage = !isPdf && !isVideo && !isAudio && fileUrl;
 
     const isLoading = form.formState.isSubmitting
 
@@ -182,6 +187,23 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
         else displayContent = lines.slice(0, MAX_LINES).join('\n') + "...";
     }
 
+    const formatTextWithLinks = (text: string) => {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = text.split(urlRegex);
+
+        return parts.map((part, i) => {
+            if(part.match(urlRegex)){
+                return (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline hover:text-indigo-600 font-medium transition">
+                        {part}
+                    </a>
+                );
+            }
+
+            return part;
+        });
+    };
+
     return (
         <div className="relative group flex items-center hover:bg-black/5 p-4 transition w-full">
             <div className="group flex gap-x-2 items-start w-full">
@@ -223,13 +245,26 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                             </div>
                         </a>
                     )}
+                    {isVideo && (
+                        <button onClick={() => onPreviewOpen(fileUrl, "video")} className="relative aspect-video rounded-md mt-2 overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-black h-48 w-64 group/vid cursor-pointer shadow-sm">
+                            <video src={fileUrl} className="object-cover h-full w-full opacity-70 group-hover/vid:opacity-90 transition" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="bg-black/50 p-3 rounded-full backdrop-blur-sm group-hover/vid:scale-110 transition">
+                                    <Play className="h-6 w-6 text-white fill-white" />
+                                </div>
+                            </div>
+                        </button>
+                    )}
+                    {isAudio && (
+                        <div className="relative mt-2 p-2 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 w-fit shadow-sm flex items-center">
+                            <audio controls src={fileUrl} className="h-10 w-64 outline-none rounded-full" />
+                        </div>
+                    )}
                     {!fileUrl && !isEditting && (
                         <div className="flex flex-col w-full max-w-full">
                             <p className={cn("text-sm text-zinc-600 dark:text-zinc-300", "whitespace-pre-wrap wrap-break-word", deleted && "italic text-zinc-500 dark:text-zinc-400 text-xs mt-1")}>
-                                {displayContent}
-                                {isUpdated && !deleted && (
-                                    <span className="text-[10px] mx-2 text-zinc-500 dark:text-zinc-400 ">(edited)</span>
-                                )}
+                                {formatTextWithLinks(displayContent)}
+                                {isUpdated && !deleted && ( <span className="text-[10px] mx-2 text-zinc-500 dark:text-zinc-400 ">(edited)</span> )}
                             </p>
                             {isLongMessage && !deleted && (
                                 <button onClick={() => setIsExpanded(!isExpanded)} className="text-primary hover:underline text-xs font-semibold mt-1 w-fit cursor-pointer">
@@ -246,7 +281,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                                         <div className="relative w-full">
                                             <Textarea {...field} disabled={isLoading} placeholder="Edited message" className="p-2 resize-none max-h-44 overflow-y-auto bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200"
                                                 onKeyDown={(event) => {
-                                                    if(event.key === "Enter" && !event.shiftKey) {
+                                                    if(event.key === "Enter" && !event.shiftKey){
                                                         event.preventDefault();
                                                         form.handleSubmit(onSubmit)();
                                                     }

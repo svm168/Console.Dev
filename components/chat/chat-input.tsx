@@ -13,6 +13,7 @@ import { EmojiPicker } from "@/components/emoji-picker";
 import { useQueryClient } from "@tanstack/react-query";
 import { v4 as uuidv4 } from "uuid";
 import { useUser } from "@clerk/nextjs";
+import { ChatAudioRecorder } from "./chat-audio-recorder";
 
 interface ChatInputProps {
     apiUrl: string;
@@ -161,24 +162,29 @@ export const ChatInput = ({apiUrl, query, name, type, member}: ChatInputProps) =
         <form onSubmit={form.handleSubmit(onSubmit)}>
             <Controller control={form.control} name="content" render={({ field }) => (
                 <Field>
-                    <div className="relative px-4 pb-6">
-                        <button type="button" onClick={() => onOpen("messageFile", {apiUrl, query})} className="absolute bottom-9 left-8 h-6 w-6 bg-zinc-500 dark:bg-zinc-400 hover:bg-zinc-600 dark:hover:bg-zinc-300 transition rounded-full p-1 flex items-center justify-center">
-                            <Plus className="text-white dark:text-[#313338]" />
-                        </button>
-                        <Textarea disabled={isLoading} placeholder={`Message ${type === "conversation" ? name : "#" + name}`} {...field} 
-                            onKeyDown={(event) => {
-                                if(event.key === "Enter" && !event.shiftKey){
-                                    event.preventDefault(); 
-                                    if(!isLoading && field.value.trim() !== "") form.handleSubmit(onSubmit)();
-                                }
-                            }}
-                            className="pl-16 pr-24 py-3 min-h-0 resize-none max-h-72 overflow-y-auto bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200" 
-                        />
-                        <div className="absolute bottom-9 right-8 flex items-center gap-x-2 z-1">
-                            <EmojiPicker onChange={(emoji: string) => field.onChange(`${field.value}${emoji}`)} />
-                            <button type="button" onClick={() => form.handleSubmit(onSubmit)()} disabled={isLoading || field.value.trim() === ""} className="h-6 w-6 flex items-center justify-center rounded-full transition text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Send className="h-5 w-5" />
+                    <div className="flex items-center w-full gap-x-2 px-4">
+                        <div className="relative flex-1 px-4 pb-6">
+                            <button type="button" onClick={() => onOpen("messageFile", {apiUrl, query})} className="absolute bottom-9 left-8 h-6 w-6 bg-zinc-500 dark:bg-zinc-400 hover:bg-zinc-600 dark:hover:bg-zinc-300 transition rounded-full p-1 flex items-center justify-center">
+                                <Plus className="text-white dark:text-[#313338]" />
                             </button>
+                            <Textarea disabled={isLoading} placeholder={`Message ${type === "conversation" ? name : "#" + name}`} {...field} 
+                                onKeyDown={(event) => {
+                                    if(event.key === "Enter" && !event.shiftKey){
+                                        event.preventDefault(); 
+                                        if(!isLoading && field.value.trim() !== "") form.handleSubmit(onSubmit)();
+                                    }
+                                }}
+                                className="pl-16 pr-24 py-3 min-h-0 resize-none max-h-72 overflow-y-auto bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200" 
+                            />
+                            <div className="absolute bottom-9 right-8 flex items-center gap-x-2 z-1">
+                                <EmojiPicker onChange={(emoji: string) => field.onChange(`${field.value}${emoji}`)} />
+                                <button type="button" onClick={() => form.handleSubmit(onSubmit)()} disabled={isLoading || field.value.trim() === ""} className="h-6 w-6 flex items-center justify-center rounded-full transition text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <Send className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="pb-6">
+                        <ChatAudioRecorder apiUrl={apiUrl} query={query} />
                         </div>
                     </div>
                 </Field>
