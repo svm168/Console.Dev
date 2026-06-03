@@ -1,3 +1,4 @@
+import { CallNotification } from "@/components/call-notification";
 import { NavigationSidebar } from "@/components/navigation/navigation-sidebar";
 
 const MainLayout = async ( { children }: { children: React.ReactNode}) => {
@@ -9,6 +10,7 @@ const MainLayout = async ( { children }: { children: React.ReactNode}) => {
             <main className="md:pl-14 h-full">
                 {children}
             </main>
+            <CallNotification />
         </div>
     );
 }

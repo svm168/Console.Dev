@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LiveKitRoom, VideoConference } from "@livekit/components-react";
+import { LiveKitRoom, VideoConference, useRemoteParticipants, useRoomContext } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useRouter, usePathname } from "next/navigation";
 
 interface MediaRoomProps {
     chatId: string;
@@ -12,9 +14,26 @@ interface MediaRoomProps {
     audio: boolean;
 }
 
+function SyncLeave() {
+    const remoteParticipants = useRemoteParticipants();
+    const room = useRoomContext();
+    const [hasJoined, setHasJoined] = useState(false);
+
+    useEffect(() => {
+        if(remoteParticipants.length > 0) setHasJoined(true);
+
+        if(hasJoined && remoteParticipants.length === 0) room.disconnect();
+    }, [remoteParticipants, hasJoined, room]);
+
+    return null;
+}
+
 export const MediaRoom = ({chatId, video, audio}: MediaRoomProps) => {
     const { user } = useUser()
     const [token, setToken] = useState("")
+
+    const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         if(!user) return;
@@ -46,10 +65,15 @@ export const MediaRoom = ({chatId, video, audio}: MediaRoomProps) => {
     }
 
     return (
-        <div className="h-[calc(100vh-27px)]">
-        <LiveKitRoom data-lk-theme="default" serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL} token={token} connect={true} video={false} audio={false}>
-            <VideoConference />
-        </LiveKitRoom>
+        <div className={cn("h-[calc(100vh-27px)]", !video && "audio-only-room")}>
+            <LiveKitRoom data-lk-theme="default" serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL} token={token} connect={true} video={false} audio={false}
+                onDisconnected={() => {
+                    if(pathname?.includes("/conversations/")) router.push(pathname);
+                }}
+            >
+                <VideoConference />
+                {pathname?.includes("/conversations/") && <SyncLeave />}
+            </LiveKitRoom>
         </div>
     )
 }

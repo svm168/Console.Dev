@@ -11,13 +11,13 @@ import axios from "axios";
 import qs from "query-string";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Field } from "../ui/field";
 import { Controller } from "react-hook-form";
 import { useModal } from "@/hooks/use-modal-store";
 import { useParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ChatItemProps {
     id: string;
@@ -49,6 +49,7 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
     const [isEditting, setIsEditting] = useState(false)
     const { onOpen } = useModal()
     const queryClient = useQueryClient()
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -167,13 +168,24 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
         router.push(`/servers/${params?.serverId}/conversations/${member.id}`)
     }
 
+    const MAX_LINES = 10;
+    const MAX_LENGTH = 1000;
+    const lines = content.split('\n');
+    const isLongMessage = lines.length > MAX_LINES || content.length > MAX_LENGTH;
+
+    let displayContent = content;
+    if(isLongMessage && !isExpanded && !deleted){
+        if (content.length > MAX_LENGTH) displayContent = content.slice(0, MAX_LENGTH) + "...";
+        else displayContent = lines.slice(0, MAX_LINES).join('\n') + "...";
+    }
+
     return (
         <div className="relative group flex items-center hover:bg-black/5 p-4 transition w-full">
             <div className="group flex gap-x-2 items-start w-full">
                 <div onClick={onMemberClick} className="cursor-pointer hover:drop-shadow-md transition">
                     <UserAvatar src={member.profile.imageUrl} />
                 </div>
-                <div className="flex flex-col w-full">
+                <div className="flex flex-col w-[90%]">
                     <div className="flex items-center gap-x-2">
                         <div className="flex items-center">
                             <p onClick={onMemberClick} className="font-semibold text-sm hover:underline cursor-pointer">{member.profile.name}</p>
@@ -195,20 +207,34 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                         </div>
                     )}
                     {!fileUrl && !isEditting && (
-                        <p className={cn("text-sm text-zinc-600 dark:text-zinc-300", deleted && "italic text-zinc-500 dark:text-zinc-400 text-xs mt-1")}>
-                            {content}
-                            {isUpdated && !deleted && (
-                                <span className="text-[10px] mx-2 text-zinc-500 dark:text-zinc-400 ">(edited)</span>
+                        <div className="flex flex-col w-full max-w-full">
+                            <p className={cn("text-sm text-zinc-600 dark:text-zinc-300", "whitespace-pre-wrap wrap-break-word", deleted && "italic text-zinc-500 dark:text-zinc-400 text-xs mt-1")}>
+                                {displayContent}
+                                {isUpdated && !deleted && (
+                                    <span className="text-[10px] mx-2 text-zinc-500 dark:text-zinc-400 ">(edited)</span>
+                                )}
+                            </p>
+                            {isLongMessage && !deleted && (
+                                <button onClick={() => setIsExpanded(!isExpanded)} className="text-primary hover:underline text-xs font-semibold mt-1 w-fit cursor-pointer">
+                                    {isExpanded ? "Show less" : "Show more"}
+                                </button>
                             )}
-                        </p>
+                        </div>
                     )}
                     {!fileUrl && isEditting && (
                         <>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center w-full gap-x-2 pt-2">
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-end w-full gap-x-2 pt-2">
                                 <Controller control={form.control} name="content" render={({ field }) => (
                                     <Field className="flex-1">
                                         <div className="relative w-full">
-                                            <Input {...field} disabled={isLoading} placeholder="Edited message" className="p-2 bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200" />
+                                            <Textarea {...field} disabled={isLoading} placeholder="Edited message" className="p-2 resize-none max-h-44 overflow-y-auto bg-zinc-200/90 dark:bg-zinc-700/75 border-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200"
+                                                onKeyDown={(event) => {
+                                                    if(event.key === "Enter" && !event.shiftKey) {
+                                                        event.preventDefault();
+                                                        form.handleSubmit(onSubmit)();
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     </Field>
                                 )}/>

@@ -1,14 +1,15 @@
 "use client";
 
 import qs from "query-string";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Video, VideoOff } from "lucide-react";
 import { ActionTooltip } from "@/components/action-tooltip";
+import axios from "axios";
 
 export const ChatVideoButton = () => {
     const router = useRouter()
     const pathname = usePathname()
+    const params = useParams()
 
     const searchParams = useSearchParams()
     const isVideo = searchParams?.get("video")
@@ -21,8 +22,16 @@ export const ChatVideoButton = () => {
             url: pathname || "",
             query: {
                 video: isVideo ? undefined: true,
+                audio: undefined
             }
         }, {skipNull: true})
+
+        if(!isVideo){
+            axios.post("/api/socket/call", {
+                memberId: params?.memberId,
+                type: "video",
+            }).catch(console.log);
+        }
 
         router.push(url)
     }

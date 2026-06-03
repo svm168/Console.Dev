@@ -134,3 +134,12 @@ body,
     @apply font-sans;
   }
 }
+
+/* LiveKit Audio-Only Overrides */
+.audio-only-room .lk-control-bar .lk-button-group:has([data-lk-source="camera"]),
+.audio-only-room .lk-control-bar .lk-button-group:has([data-lk-source="screen_share"]),
+/* Fallback: Just in case LiveKit renders them without a group */
+.audio-only-room .lk-control-bar > [data-lk-source="camera"],
+.audio-only-room .lk-control-bar > [data-lk-source="screen_share"] {
+    display: none !important;
+}
