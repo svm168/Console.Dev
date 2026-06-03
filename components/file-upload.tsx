@@ -12,13 +12,15 @@ interface FileUploadProps {
 
 export const FileUpload = ({ onChange, value, endpoint}: FileUploadProps) => {
     const isPdf = value?.toLowerCase().endsWith(".pdf") || value?.toLowerCase().includes("ext=pdf")
+
+    const isServerImage = endpoint === "serverImage";
     
     if(value && !isPdf){
         return (
             <div className="flex w-full justify-center">
-                <div className="relative h-20 w-20">
-                    <img src={value} alt="Server Avatar" className="h-full w-full rounded-full object-cover" sizes="80px" />
-                    <button onClick={() => onChange("")} className="bg-rose-500 text-white p-1 rounded-full absolute top-0 right-0 shadow-sm" type="button">
+                <div className={`relative ${isServerImage ? "h-20 w-20" : "h-48 w-48"}`}>
+                    <img src={value} alt="Upload Preview" className={`object-cover h-full w-full ${isServerImage ? "rounded-full" : "rounded-md"}`} sizes={isServerImage ? "80px" : "192px"} />
+                    <button onClick={() => onChange("")} className="bg-rose-500 text-white p-1 rounded-full absolute -top-2 -right-2 shadow-sm z-10" type="button">
                         <X className="h-4 w-4"/>
                     </button>
                 </div>

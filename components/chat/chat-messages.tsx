@@ -47,7 +47,7 @@ export const ChatMessages = ({name, member, chatId, apiUrl, socketUrl, socketQue
         bottomRef,
         loadMore: fetchNextPage,
         shouldLoadMore: !isFetchingNextPage && !!hasNextPage,
-        count: data?.pages?.[0]?.items?.length ?? 0,
+        count: data?.pages?.reduce((total, page) => total + page.items.length, 0) ?? 0,
     })
 
     if(status === "pending") return (

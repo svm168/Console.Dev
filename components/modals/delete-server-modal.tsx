@@ -1,36 +1,35 @@
 "use client";
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
 import { useModal } from "@/hooks/use-modal-store";
 import { Button } from "@/components/ui/button";
-
-import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { useServerAction } from "@/hooks/use-server-action";
 
 export const DeleteServerModal = () => {
     const { isOpen, onClose, type, data } = useModal();
     const router = useRouter();
+    const { setServerLoading } = useServerAction();
 
     const isModalOpen = isOpen && type === "deleteServer"
     const { server } = data
 
-    const [isLoading, setIsLoading] = useState(false)
-
     const onClick = async () => {
         try {
-            setIsLoading(true)
+            setServerLoading(true);
+            onClose();
+            router.push("/");
 
-            await axios.delete(`/api/servers/${server?.id}`)
-
-            onClose()
-            router.refresh()
-            router.push("/")
+            axios.delete(`/api/servers/${server?.id}`).then(() => {
+                router.refresh();
+            }).catch((error) => {
+                console.log(error);
+            }).finally(() => {
+                setServerLoading(false);
+            });
         } catch (error) {
             console.log(error)
-        } finally {
-            setIsLoading(false)
         }
     }
 
@@ -46,8 +45,8 @@ export const DeleteServerModal = () => {
                 </DialogHeader>
                 <DialogFooter className="bg-gray-100 px-6 py-4">
                     <div className="flex items-center justify-between w-full">
-                        <Button disabled={isLoading} onClick={onClose} variant="ghost">Cancel</Button>
-                        <Button disabled={isLoading} onClick={onClick} variant="primary">Confirm</Button>
+                        <Button onClick={onClose} variant="ghost">Cancel</Button>
+                        <Button onClick={onClick} variant="primary">Confirm</Button>
                     </div>
                 </DialogFooter>
             </DialogContent>

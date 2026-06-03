@@ -3,17 +3,16 @@
 import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/file-upload";
-
 import axios from "axios"
 import { useRouter } from "next/navigation";
 import { useModal } from "@/hooks/use-modal-store";
 import { useEffect } from "react";
+import { useServerAction } from "@/hooks/use-server-action";
 
 const formSchema = z.object({
     name: z.string().min(1, {
@@ -27,6 +26,7 @@ const formSchema = z.object({
 export const EditServerModal = () => {
     const { isOpen, onClose, type, data } = useModal();
     const router = useRouter();
+    const { setServerLoading } = useServerAction();
 
     const isModalOpen = isOpen && type === "editServer"
     const { server } = data
@@ -50,11 +50,16 @@ export const EditServerModal = () => {
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
-            await axios.patch(`/api/servers/${server?.id}`, values);
-
-            form.reset();
-            router.refresh();
+            setServerLoading(true);
             onClose();
+
+            axios.patch(`/api/servers/${server?.id}`, values).then(() => {
+                router.refresh();
+            }).catch((error) => {
+                console.log(error);
+            }).finally(() => {
+                setServerLoading(false);
+            });
         } catch (error) {
             console.log(error)
         }
@@ -81,15 +86,9 @@ export const EditServerModal = () => {
                         {/* Server Avatar upload field */}
                         <div className="flex flex-col items-center justify-center text-center">
                             <Field className="w-full flex flex-col items-center justify-center">
-                                <Controller
-                                    control={form.control}
-                                    name="imageUrl"
+                                <Controller control={form.control} name="imageUrl"
                                     render={({ field }) => (
-                                        <FileUpload
-                                            endpoint="serverImage"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                        />
+                                        <FileUpload endpoint="serverImage" value={field.value} onChange={field.onChange} />
                                     )}
                                 />
                                 {form.formState.errors.imageUrl && (
@@ -105,15 +104,9 @@ export const EditServerModal = () => {
                             <FieldLabel className="uppercase text-xs font-bold text-zinc-500 dark:text-secondary/70">
                                 Server Name
                             </FieldLabel>
-                            
                             <div className="bg-zinc-300/50 border-0 focus-visible:ring-0 text-black focus-visible:ring-offset-0 rounded-lg">
-                            <Input 
-                                disabled={isLoading}
-                                placeholder="Enter server name"
-                                {...form.register("name")}
-                            />
+                            <Input disabled={isLoading} placeholder="Enter server name" {...form.register("name")} />
                             </div>
-                            
                             {form.formState.errors.name && (
                                 <p className="text-[0.8rem] font-medium text-destructive mt-2">
                                     {form.formState.errors.name.message}

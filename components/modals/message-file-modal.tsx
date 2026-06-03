@@ -3,16 +3,13 @@
 import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/file-upload";
-
 import axios from "axios"
 import { useRouter } from "next/navigation";
 import { useModal } from "@/hooks/use-modal-store";
-
 import qs from "query-string";
 
 const formSchema = z.object({
@@ -39,18 +36,12 @@ export const MessageFileModal = () => {
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
-            const url = qs.stringifyUrl({
-                url: apiUrl || "",
-                query,
-            })
-            await axios.post(url, {
-                ...values,
-                content: values.fileUrl,
-            });
+            onClose();
 
-            form.reset();
-            router.refresh();
-            handleClose();
+            const url = qs.stringifyUrl({ url: apiUrl || "", query });
+            axios.post(url, { ...values, content: values.fileUrl }).then(() => {
+                form.reset();
+            }).catch(console.log);
         } catch (error) {
             console.log(error)
         }
