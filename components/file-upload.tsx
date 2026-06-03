@@ -1,6 +1,6 @@
 "use client";
 
-import { FileIcon, X } from "lucide-react";
+import { X, FileText } from "lucide-react";
 import { UploadDropzone } from "@/lib/uploadthing";
 import "@uploadthing/react/styles.css";
 
@@ -30,10 +30,27 @@ export const FileUpload = ({ onChange, value, endpoint}: FileUploadProps) => {
 
     if(value && isPdf){
         return (
-            <div className="relative flex items-center p-2 mt-2 rounded-md bg-background/10">
-                <FileIcon className="h-10 w-10 fill-indigo-200 stroke-indigo-400 shrink-0" />
-                <a href={value} target="_blank" rel="noopener noreferrer" className="ml-2 text-sm text-indigo-500 dark:text-indigo-400 hover:underline break-all">{value}</a>
-                <button onClick={() => onChange("")} className="bg-rose-500 text-white p-1 rounded-full absolute -top-2 -right-2 shadow-sm" type="button">
+            <div className="relative flex items-center justify-center mt-2">
+                <div className="relative flex flex-col rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 overflow-hidden w-64 shadow-sm">
+                    <div className="relative h-36 w-full overflow-hidden bg-white pointer-events-none select-none">
+                        <iframe src={`${value}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="absolute top-0 left-0 w-[200%] h-[200%] transform scale-50 origin-top-left pointer-events-none" tabIndex={-1} />
+                        <div className="absolute inset-0 bg-linear-to-t from-zinc-100 dark:from-zinc-900 via-transparent to-transparent" />
+                    </div>
+
+                    <div className="flex items-center p-3 gap-x-3 bg-zinc-100 dark:bg-zinc-900 z-10 border-t border-zinc-200 dark:border-zinc-800">
+                        <div className="p-2 bg-rose-500/10 rounded-lg shrink-0">
+                            <FileText className="h-6 w-6 text-rose-500" />
+                        </div>
+                        <div className="flex flex-col overflow-hidden text-left">
+                            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 line-clamp-1">
+                                {value.split('/').pop() || "Document.pdf"}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 uppercase mt-0.5 font-bold tracking-wider">PDF Document</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onClick={() => onChange("")} className="bg-rose-500 hover:bg-rose-600 transition text-white p-1 rounded-full absolute -top-2 -right-2 shadow-sm z-20 cursor-pointer" type="button">
                     <X className="h-4 w-4"/>
                 </button>
             </div>
@@ -41,8 +58,7 @@ export const FileUpload = ({ onChange, value, endpoint}: FileUploadProps) => {
     }
 
     return (
-        <UploadDropzone 
-            endpoint={endpoint}
+        <UploadDropzone endpoint={endpoint}
             onClientUploadComplete={(res) => {
                 const fileUrl = res?.[0]?.ufsUrl || res?.[0]?.ufsUrl;
                 const fileName = res?.[0]?.name;

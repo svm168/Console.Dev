@@ -3,7 +3,7 @@
 import { Member, MemberRole, Profile } from "@prisma/client";
 import { UserAvatar } from "@/components/user-avatar";
 import { ActionTooltip } from "@/components/action-tooltip";
-import { Edit, FileIcon, ShieldAlert, ShieldCheck, Trash } from "lucide-react";
+import { Edit, ShieldAlert, ShieldCheck, Trash, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import * as z from "zod";
@@ -18,6 +18,7 @@ import { useModal } from "@/hooks/use-modal-store";
 import { useParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Textarea } from "@/components/ui/textarea";
+import { useMediaPreview } from "@/hooks/use-media-preview";
 
 interface ChatItemProps {
     id: string;
@@ -26,7 +27,7 @@ interface ChatItemProps {
         profile: Profile;
     };
     timestamp: string;
-    fileUrl: string | null;
+    fileUrl: string | undefined;
     deleted: boolean;
     currentMember: Member;
     isUpdated: boolean;
@@ -50,6 +51,8 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
     const { onOpen } = useModal()
     const queryClient = useQueryClient()
     const [isExpanded, setIsExpanded] = useState(false);
+
+    const { onOpen: onPreviewOpen } = useMediaPreview();
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -196,15 +199,29 @@ export const ChatItem = ({id, content, member, timestamp, fileUrl, deleted, curr
                         <span className="text-xs text-zinc-500 dark:text-zinc-400">{timestamp}</span>
                     </div>
                     {isImage && (
-                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="relative aspect-square rounded-md mt-2 overflow-hidden border flex items-center bg-secondary h-48 w-48">
-                            <img src={fileUrl} alt={content} className="object-cover w-full h-full" />
-                        </a>
+                        <button onClick={() => onPreviewOpen(fileUrl, "image")} className="relative aspect-square rounded-md mt-2 overflow-hidden border flex items-center bg-secondary h-48 w-48 group/img cursor-zoom-in text-left">
+                            <img src={fileUrl} alt={content} className="object-cover w-full h-full transition group-hover/img:scale-105" />
+                        </button>
                     )}
                     {isPdf && (
-                        <div className="relative flex items-center p-2 mt-2 rounded-md bg-background/10">
-                            <FileIcon className="h-10 w-10 fill-indigo-200 stroke-indigo-400 shrink-0" />
-                            <a href={fileUrl || undefined} target="_blank" rel="noopener noreferrer" className="ml-2 text-sm text-indigo-500 dark:text-indigo-400 hover:underline break-all">PDF File</a>
-                        </div>
+                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="relative flex flex-col mt-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 overflow-hidden w-64 group hover:shadow-md transition">
+                            <div className="relative h-36 w-full overflow-hidden bg-white pointer-events-none select-none">
+                                <iframe src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} className="absolute top-0 left-0 w-[200%] h-[200%] transform scale-50 origin-top-left pointer-events-none" tabIndex={-1}/>
+                                <div className="absolute inset-0 bg-linear-to-t from-zinc-100 dark:from-zinc-900 via-transparent to-transparent" />
+                            </div>
+
+                            <div className="flex items-center p-3 gap-x-3 bg-zinc-100 dark:bg-zinc-900 z-10 border-t border-zinc-200 dark:border-zinc-800">
+                                <div className="p-2 bg-rose-500/10 rounded-lg shrink-0">
+                                    <FileText className="h-6 w-6 text-rose-500" />
+                                </div>
+                                <div className="flex flex-col overflow-hidden">
+                                    <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 group-hover:text-indigo-500 transition line-clamp-1">
+                                        {fileUrl?.split('/').pop() || "Document.pdf"}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-500 uppercase mt-0.5 font-bold tracking-wider">PDF Document</span>
+                                </div>
+                            </div>
+                        </a>
                     )}
                     {!fileUrl && !isEditting && (
                         <div className="flex flex-col w-full max-w-full">
