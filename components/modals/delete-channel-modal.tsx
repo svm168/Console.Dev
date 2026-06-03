@@ -1,49 +1,51 @@
 "use client";
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
 import { useModal } from "@/hooks/use-modal-store";
 import { Button } from "@/components/ui/button";
-
-import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import qs from "query-string";
+import { useOptimisticChannels } from "@/hooks/use-optimistic-channels";
+import { useParams } from "next/navigation";
 
 export const DeleteChannelModal = () => {
     const { isOpen, onClose, type, data } = useModal();
     const router = useRouter();
+    const params = useParams()
 
     const isModalOpen = isOpen && type === "deleteChannel"
     const { server, channel } = data
 
-    const [isLoading, setIsLoading] = useState(false)
-
     const onClick = async () => {
         try {
-            setIsLoading(true)
-            const url = qs.stringifyUrl({
-                url: `/api/channels/${channel?.id}`,
-                query: {
-                    serverId: server?.id
-                }
-            })
+            const store = useOptimisticChannels.getState();
+            let targetId = channel?.id;
 
-            await axios.delete(url)
-
-            router.refresh()
-            try {
-                window.dispatchEvent(new CustomEvent("channel-deleted", { detail: channel?.id }))
-            } catch (error) {
-                console.log(error)
+            if(targetId?.startsWith("temp_")){
+                const swapped = Object.values(store.pendingCreates).find((c: any) => c._tempId === targetId);
+                if(swapped && !swapped.id.startsWith("temp_")) targetId = swapped.id;
             }
-            onClose()
             
-            router.push(`/servers/${server?.id}`)
+            store.addDelete(targetId);
+            onClose();
+
+            if(params?.channelId === targetId || params?.channelId === channel?.id){
+                const generalChannel = server?.channels?.find((c: any) => c.name === "general");
+                
+                if(generalChannel) router.push(`/servers/${server?.id}/channels/${generalChannel.id}`);
+                else router.push(`/servers/${server?.id}`);
+            }
+
+            if(targetId?.startsWith("temp_")) return;
+
+            const url = qs.stringifyUrl({ url: `/api/channels/${targetId}`, query: { serverId: server?.id } });
+            
+            axios.delete(url).then(() => {
+                router.refresh();
+            }).catch(console.log);
         } catch (error) {
             console.log(error)
-        } finally {
-            setIsLoading(false)
         }
     }
 
@@ -59,8 +61,8 @@ export const DeleteChannelModal = () => {
                 </DialogHeader>
                 <DialogFooter className="bg-gray-100 px-6 py-4">
                     <div className="flex items-center justify-between w-full">
-                        <Button disabled={isLoading} onClick={onClose} variant="ghost">Cancel</Button>
-                        <Button disabled={isLoading} onClick={onClick} variant="primary">Confirm</Button>
+                        <Button onClick={onClose} variant="ghost">Cancel</Button>
+                        <Button onClick={onClick} variant="primary">Confirm</Button>
                     </div>
                 </DialogFooter>
             </DialogContent>

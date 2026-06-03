@@ -3,20 +3,18 @@
 import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 import axios from "axios"
 import { useRouter } from "next/navigation";
 import { useModal } from "@/hooks/use-modal-store";
 import { ChannelType } from "@prisma/client";
-
 import qs from "query-string";
 import { useEffect } from "react";
+import { useOptimisticChannels } from "@/hooks/use-optimistic-channels";
 
 const formSchema = z.object({
     name: z.string().min(1, {
@@ -52,22 +50,26 @@ export const EditChannelModal = () => {
         }
     }, [channel, form])
 
-    const isLoading = form.formState.isSubmitting;
-
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
-            const url = qs.stringifyUrl({
-                url: `/api/channels/${channel?.id}`,
-                query: {
-                    serverId: server?.id
-                }
-            })
+            const store = useOptimisticChannels.getState();
+            let targetId = channel?.id;
+            if(targetId?.startsWith("temp_")){
+                const swapped = Object.values(store.pendingCreates).find((c: any) => c._tempId === targetId);
+                if(swapped && !swapped.id.startsWith("temp_")) targetId = swapped.id;
+            }
 
-            await axios.patch(url, values);
-
+            store.addEdit(targetId, values);
             form.reset();
-            router.refresh();
             onClose();
+
+            if (targetId?.startsWith("temp_")) return;
+
+            const url = qs.stringifyUrl({ url: `/api/channels/${targetId}`, query: { serverId: server?.id } });
+            
+            axios.patch(url, values).then(() => {
+                router.refresh();
+            }).catch(console.log);
         } catch (error) {
             console.log(error)
         }
@@ -75,7 +77,7 @@ export const EditChannelModal = () => {
 
     const handleClose = () => {
         form.reset();
-        onClose();      // from destructuring of useModal() hook.
+        onClose();
     }
 
     return (
@@ -94,11 +96,7 @@ export const EditChannelModal = () => {
                             </FieldLabel>
                             
                             <div className="bg-zinc-300/50 border-0 focus-visible:ring-0 text-black focus-visible:ring-offset-0 rounded-lg">
-                            <Input 
-                                disabled={isLoading}
-                                placeholder="Enter channel name"
-                                {...form.register("name")}
-                            />
+                            <Input placeholder="Enter channel name" {...form.register("name")}/>
                             </div>
                             
                             {form.formState.errors.name && (
@@ -112,7 +110,7 @@ export const EditChannelModal = () => {
                         <Controller control={form.control} name="type" render={({ field, fieldState }) => (
                             <Field data-invalid={fieldState.invalid}>
                                 <FieldLabel htmlFor={field.name}>Channel Type</FieldLabel>
-                                <Select disabled={isLoading} onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger id={field.name} aria-invalid={fieldState.invalid} className="bg-zinc-300/50! border-0 focus:ring-0 text-black ring-offset-0 focus:ring-offset-0 capitalize outline-none">
                                         <SelectValue placeholder="Select a Channel Type" />
                                     </SelectTrigger>
@@ -129,7 +127,7 @@ export const EditChannelModal = () => {
                     </div>
                     
                     <DialogFooter className="px-6 py-4">
-                        <Button variant="primary" disabled={isLoading}>Save</Button>
+                        <Button variant="primary">Save</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

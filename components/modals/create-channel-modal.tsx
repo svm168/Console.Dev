@@ -14,6 +14,8 @@ import { useModal } from "@/hooks/use-modal-store";
 import { ChannelType } from "@prisma/client";
 import qs from "query-string";
 import { useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+import { useOptimisticChannels } from "@/hooks/use-optimistic-channels";
 
 const formSchema = z.object({
     name: z.string().min(1, {
@@ -48,22 +50,45 @@ export const CreateChannelModal = () => {
         else form.setValue("type", ChannelType.TEXT)
     }, [channelType, form])
 
-    const isLoading = form.formState.isSubmitting;
-
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         try {
-            const url = qs.stringifyUrl({
-                url: "/api/channels",
-                query: {
-                    serverId: params?.serverId
-                }
-            })
-
-            await axios.post(url, values);
-
+            const tempId = `temp_${uuidv4()}`;
+            const tempChannel = {
+                id: tempId,
+                _tempId: tempId,
+                name: values.name,
+                type: values.type, 
+                serverId: params?.serverId as string,
+                profileId: "temp-profile", 
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+    
+            useOptimisticChannels.getState().addCreate(tempChannel as any);
             form.reset();
-            router.refresh();
             onClose();
+    
+            const url = qs.stringifyUrl({ url: "/api/channels", query: { serverId: params?.serverId } });
+            axios.post(url, { ...values, tempId }).then((res) => {
+                const returnedData = res.data;
+                
+                const realChannel = returnedData.channels?.sort(
+                    (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                )[0];
+                
+                const store = useOptimisticChannels.getState();
+                const pendingEdit = store.pendingEdits[tempId];
+                const isDeleted = store.pendingDeletes[tempId];
+
+                if(realChannel && realChannel.id){
+                    store.swapId(tempId, realChannel.id);
+
+                    if(isDeleted) axios.delete(`/api/channels/${realChannel.id}?serverId=${params?.serverId}`).catch(console.log);
+                    else if(pendingEdit) axios.patch(`/api/channels/${realChannel.id}?serverId=${params?.serverId}`, pendingEdit).catch(console.log);
+                }
+    
+                router.refresh();
+            }).catch(console.log);
         } catch (error) {
             console.log(error)
         }
@@ -90,11 +115,7 @@ export const CreateChannelModal = () => {
                             </FieldLabel>
                             
                             <div className="bg-zinc-300/50 border-0 focus-visible:ring-0 text-black focus-visible:ring-offset-0 rounded-lg">
-                            <Input 
-                                disabled={isLoading}
-                                placeholder="Enter channel name"
-                                {...form.register("name")}
-                            />
+                            <Input placeholder="Enter channel name" {...form.register("name")}/>
                             </div>
                             
                             {form.formState.errors.name && (
@@ -108,7 +129,7 @@ export const CreateChannelModal = () => {
                         <Controller control={form.control} name="type" render={({ field, fieldState }) => (
                             <Field data-invalid={fieldState.invalid}>
                                 <FieldLabel htmlFor={field.name}>Channel Type</FieldLabel>
-                                <Select disabled={isLoading} onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger id={field.name} aria-invalid={fieldState.invalid} className="bg-zinc-300/50! border-0 focus:ring-0 text-black ring-offset-0 focus:ring-offset-0 capitalize outline-none">
                                         <SelectValue placeholder="Select a Channel Type" />
                                     </SelectTrigger>
@@ -125,7 +146,7 @@ export const CreateChannelModal = () => {
                     </div>
                     
                     <DialogFooter className="px-6 py-4">
-                        <Button variant="primary" disabled={isLoading}>Create</Button>
+                        <Button variant="primary">Create</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
