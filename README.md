@@ -1,6 +1,10 @@
 # Console.Dev - Real-time Communication Platform
 
-A feature-rich Discord-like communication platform built with modern web technologies, enabling real-time messaging, voice/video channels, and direct messaging capabilities.
+A high-performance, real-time collaboration hub engineered for developers. Features low-latency channel synchronization, sub-millisecond video conferencing streaming, rich markdown integration, and custom developer tools built on an optimized event-driven architecture.
+
+## 🚀 Live Project Link
+
+- https://consoledev-production.up.railway.app/
 
 ## 📋 Table of Contents
 
